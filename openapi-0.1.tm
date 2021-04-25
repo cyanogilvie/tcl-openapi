@@ -287,6 +287,4 @@ namespace eval ::openapi {
 	}
 }
 
-openapi generate tm {*}$argv
-
 # vim: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4
