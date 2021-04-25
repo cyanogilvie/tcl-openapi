@@ -229,9 +229,10 @@ namespace eval ::openapi {
 					puts -nonewline $h \u1A
 					zlib push gzip $h -level 9
 				}
+				puts $h "package require rl_json"
+				puts $h "package require parse_args"
 				puts $h "package require rl_http 1.8"
 				puts $h "package require urlencode"
-				puts $h "package require parse_args"
 				puts $h ""
 				puts $h "namespace eval ::[list $ns] \{"
 				puts $h "\tnamespace export *"
