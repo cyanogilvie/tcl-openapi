@@ -214,7 +214,7 @@ namespace eval ::openapi {
 						puts $h "	set h \[open \[info script\] rb\]"
 						puts $h "	try \{"
 						puts $h "		set data	\[read \$h\]"
-						puts $h "		set eof		\[string first \u1A \$data\]"
+						puts $h "		set eof		\[string first \\u1A \$data\]"
 						puts $h "		eval \[encoding convertfrom utf-8 \[zlib gunzip \[string range \$data \$eof+1 end\]\]\]"
 						puts $h "	\} finally \{"
 						puts $h "		close \$h"
