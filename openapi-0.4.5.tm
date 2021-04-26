@@ -57,7 +57,6 @@ namespace eval ::openapi {
 						json foreach param [json extract $def parameters] {
 							foreach {k default} {
 								type		??
-								schema		??
 							} {
 								if {[json exists $param $k]} {
 									set $k	[json get $param $k]
@@ -113,59 +112,59 @@ namespace eval ::openapi {
 
 							#puts [format "\t-%-20s %-10s %-10s" [json get $param name] [json get $param in] $type]
 						}
-
-						set longest_name	[longest [dict keys $pargs]]
-						set tabs			[expr {max(3, int(ceil(($longest_name+1) / 4.0)))}]
-						set procbody	{}
-						append procbody "\tparse_args \$args \{" \n
-						foreach {name argspec} $pargs {
-							set padding	[expr {
-								$tabs - int(floor([string length $name]/4.0))
-							}]
-							#puts "padding: ($padding), tabs: ($tabs), consumed: [expr {ceil([string length $name]/4.0)}], longest_name: $longest_name"
-							append procbody "\t\t$name[string repeat \t $padding]{$argspec}" \n
-						}
-						append procbody "\t\} in" \n
-						append procbody "" \n
-						append procbody "\tset extra\t{}" \n
-						if {[llength [dict get $in path]] > 0} {
-							append procbody "\tset pathmap\t{}" \n
-							foreach name [dict get $in path] {
-								append procbody "\tlappend pathmap {{[list $name]}}\t\[urlencode rfc_urlencode -part path -- \[dict get \$in [list $name]\]\]" \n
-							}
-							append procbody "\tset path\t\[string map \$pathmap [list $path]\]" \n
-						} else {
-							append procbody "\tset path\t[list $path]" \n
-						}
-						append procbody "\tset query\t{}" \n
-						foreach name [dict get $in query] {
-							append procbody "\tif {\[dict exists \$in [list $name]\]} {lappend query [list $name]\t\[dict get \$in [list $name]\]}" \n
-						}
-						if {[llength [dict get $in header]] > 0} {
-							append procbody "\tset headers\t{}" \n
-							foreach name [dict get $in header] {
-								append procbody "\tif {\[dict exists \$in [list $name]\]} {lappend headers [list $name]\t\[dict get \$in [list $name]\]}" \n
-							}
-							append procbody "\tlappend extra -headers \$headers"
-						}
-
-						switch -- [llength [dict get $in body]] {
-							0 {}
-							1 {
-								if {$binary} {
-									append procbody "\tlappend extra -body \[dict get \$in [list [lindex [dict get $in body] 0]]\]" \n
-								} else {
-									append procbody "\tlappend extra -body \[encoding convertto utf-8 \[dict get \$in [list [lindex [dict get $in body] 0]]\]\]" \n
-								}
-								append procbody "\tlappend headers Content-Type [list $mimetype]" \n
-							}
-							default {
-								error "Multiple parameters target the body"
-							}
-						}
-
-						append procbody "\t::${ns}::_req \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
 					}
+
+					set longest_name	[longest [dict keys $pargs]]
+					set tabs			[expr {max(3, int(ceil(($longest_name+1) / 4.0)))}]
+					set procbody	{}
+					append procbody "\tparse_args \$args \{" \n
+					foreach {name argspec} $pargs {
+						set padding	[expr {
+							$tabs - int(floor([string length $name]/4.0))
+						}]
+						#puts "padding: ($padding), tabs: ($tabs), consumed: [expr {ceil([string length $name]/4.0)}], longest_name: $longest_name"
+						append procbody "\t\t$name[string repeat \t $padding]{$argspec}" \n
+					}
+					append procbody "\t\} in" \n
+					append procbody "" \n
+					append procbody "\tset extra\t{}" \n
+					if {[llength [dict get $in path]] > 0} {
+						append procbody "\tset pathmap\t{}" \n
+						foreach name [dict get $in path] {
+							append procbody "\tlappend pathmap {{[list $name]}}\t\[urlencode rfc_urlencode -part path -- \[dict get \$in [list $name]\]\]" \n
+						}
+						append procbody "\tset path\t\[string map \$pathmap [list $path]\]" \n
+					} else {
+						append procbody "\tset path\t[list $path]" \n
+					}
+					append procbody "\tset query\t{}" \n
+					foreach name [dict get $in query] {
+						append procbody "\tif {\[dict exists \$in [list $name]\]} {lappend query [list $name]\t\[dict get \$in [list $name]\]}" \n
+					}
+					if {[llength [dict get $in header]] > 0} {
+						append procbody "\tset headers\t{}" \n
+						foreach name [dict get $in header] {
+							append procbody "\tif {\[dict exists \$in [list $name]\]} {lappend headers [list $name]\t\[dict get \$in [list $name]\]}" \n
+						}
+						append procbody "\tlappend extra -headers \$headers"
+					}
+
+					switch -- [llength [dict get $in body]] {
+						0 {}
+						1 {
+							if {$binary} {
+								append procbody "\tlappend extra -body \[dict get \$in [list [lindex [dict get $in body] 0]]\]" \n
+							} else {
+								append procbody "\tlappend extra -body \[encoding convertto utf-8 \[dict get \$in [list [lindex [dict get $in body] 0]]\]\]" \n
+							}
+							append procbody "\tlappend headers Content-Type [list $mimetype]" \n
+						}
+						default {
+							error "Multiple parameters target the body"
+						}
+					}
+
+					append procbody "\t::${ns}::_req \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
 
 					set op	[json get $def operationId]
 					if {[json exists $def tags]} {
