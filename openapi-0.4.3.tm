@@ -204,78 +204,83 @@ namespace eval ::openapi {
 
 			#>>>
 
-			with_chan h {
-				tcl::chan::variable out
-			} {
-				if {[dict get $cfg ziplet]} {
-					puts $h "apply \{\{\} \{ # Code is gzipped and appended to this script"
-					puts $h "	set h \[open \[info script\] rb\]"
-					puts $h "	try \{"
-					puts $h "		set data	\[read \$h\]"
-					puts $h "		set eof		\[string first \u1A \$data\]"
-					puts $h "		eval \[encoding convertfrom utf-8 \[zlib gunzip \[string range \$data \$eof+1 end\]\]\]"
-					puts $h "	\} finally \{"
-					puts $h "		close \$h"
+			try {
+				with_chan h {
+					# tcl::chan::variable can only work with global variables
+					tcl::chan::variable ::_openapi_out
+				} {
+					if {[dict get $cfg ziplet]} {
+						puts $h "apply \{\{\} \{ # Code is gzipped and appended to this script"
+						puts $h "	set h \[open \[info script\] rb\]"
+						puts $h "	try \{"
+						puts $h "		set data	\[read \$h\]"
+						puts $h "		set eof		\[string first \u1A \$data\]"
+						puts $h "		eval \[encoding convertfrom utf-8 \[zlib gunzip \[string range \$data \$eof+1 end\]\]\]"
+						puts $h "	\} finally \{"
+						puts $h "		close \$h"
+						puts $h "	\}"
+						puts $h "\}\}"
+						puts -nonewline $h \u1A
+						zlib push gzip $h -level 9
+					}
+					puts $h "package require rl_json"
+					puts $h "package require parse_args"
+					puts $h "package require rl_http 1.8"
+					puts $h "package require urlencode"
+					puts $h ""
+					puts $h "namespace eval ::[list $ns] \{"
+					puts $h "\tnamespace export *"
+					puts $h "\tnamespace ensemble create -prefixes no"
+					puts $h "\tnamespace path \{"
+					puts $h "\t\t::parse_args"
+					puts $h "\t\t::rl_json"
+					puts $h "\t\}"
+					puts $h ""
+					puts $h "	proc _req \{server method path args\} \{ #<<<"
+					puts $h "		rl_http instvar h \$method \$server\$path \{*\}\$args"
+					puts $h "		switch -glob -- \[\$h code\] \{"
+					puts $h "			2* \{\$h body\}"
+					puts $h "			default \{"
+					puts $h "				try \{"
+					puts $h "					json get \[\$h body\] message"
+					puts $h "				\} on ok errmsg \{"
+					puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \$errmsg"
+					puts $h "				\} on error \{\} \{"
+					puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \[\$h body\]"
+					puts $h "				\}"
+					puts $h "			\}"
+					puts $h "		\}"
 					puts $h "	\}"
-					puts $h "\}\}"
-					puts -nonewline $h \u1A
-					zlib push gzip $h -level 9
-				}
-				puts $h "package require rl_json"
-				puts $h "package require parse_args"
-				puts $h "package require rl_http 1.8"
-				puts $h "package require urlencode"
-				puts $h ""
-				puts $h "namespace eval ::[list $ns] \{"
-				puts $h "\tnamespace export *"
-				puts $h "\tnamespace ensemble create -prefixes no"
-				puts $h "\tnamespace path \{"
-				puts $h "\t\t::parse_args"
-				puts $h "\t\t::rl_json"
-				puts $h "\t\}"
-				puts $h ""
-				puts $h "	proc _req \{server method path args\} \{ #<<<"
-				puts $h "		rl_http instvar h \$method \$server\$path \{*\}\$args"
-				puts $h "		switch -glob -- \[\$h code\] \{"
-				puts $h "			2* \{\$h body\}"
-				puts $h "			default \{"
-				puts $h "				try \{"
-				puts $h "					json get \[\$h body\] message"
-				puts $h "				\} on ok errmsg \{"
-				puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \$errmsg"
-				puts $h "				\} on error \{\} \{"
-				puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \[\$h body\]"
-				puts $h "				\}"
-				puts $h "			\}"
-				puts $h "		\}"
-				puts $h "	\}"
-				puts $h ""
-				puts $h "#>>>\n"
+					puts $h ""
+					puts $h "#>>>\n"
 
-				dict for {tag procs} $ensembles {
-					if {$tag ne ""} {
-						puts $h "\tnamespace eval $tag \{ #<<<"
-						puts $h "\t\tnamespace export *"
-						puts $h "\t\tnamespace ensemble create -prefixes no"
-						puts $h "\t\tnamespace path \{"
-						puts $h "\t\t\t::parse_args"
-						puts $h "\t\t\t::rl_json"
-						puts $h "\t\t\}"
-						puts $h ""
+					dict for {tag procs} $ensembles {
+						if {$tag ne ""} {
+							puts $h "\tnamespace eval $tag \{ #<<<"
+							puts $h "\t\tnamespace export *"
+							puts $h "\t\tnamespace ensemble create -prefixes no"
+							puts $h "\t\tnamespace path \{"
+							puts $h "\t\t\t::parse_args"
+							puts $h "\t\t\t::rl_json"
+							puts $h "\t\t\}"
+							puts $h ""
+						}
+						foreach proc $procs {
+							puts $h [indent [string repeat \t [expr {$tag eq "" ? 1 : 2}]] $proc]
+						}
+						if {$tag ne ""} {
+							puts $h "\t\}\n\n\t#>>>"
+						}
 					}
-					foreach proc $procs {
-						puts $h [indent [string repeat \t [expr {$tag eq "" ? 1 : 2}]] $proc]
-					}
-					if {$tag ne ""} {
-						puts $h "\t\}\n\n\t#>>>"
-					}
+					puts $h "\}"
+					puts $h ""
+					puts $h "# vim\: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4"
 				}
-				puts $h "\}"
-				puts $h ""
-				puts $h "# vim\: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4"
+
+				set ::_openapi_out
+			} finally {
+				unset -nocomplain ::_openapi_out
 			}
-
-			set out
 		}
 
 		#>>>
