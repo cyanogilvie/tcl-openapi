@@ -21,11 +21,7 @@ namespace eval ::openapi {
 				in		{-required}
 			} cfg
 
-			if {[dict get $cfg in] eq "-"} {
-				set s	[read stdin]
-			} else {
-				set s	[readfile [dict get $cfg in]]
-			}
+			set s	[dict get $cfg in]
 
 			proc longest l { #<<<
 				set longest	0
