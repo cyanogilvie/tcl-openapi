@@ -51,7 +51,7 @@ namespace eval ::openapi {
 					}
 
 					#puts "[json get $def operationId]: [string toupper $method] $path -> $produces"
-					set pargs	{-server {-default http://[/var/run/docker.sock]}}
+					set pargs	{-server {-default http://[/var/run/docker.sock]} -response_headers {}}
 					set in		{path {} query {} body {} header {}}
 					if {[json exists $def parameters]} {
 						json foreach param [json extract $def parameters] {
@@ -164,6 +164,10 @@ namespace eval ::openapi {
 						}
 					}
 
+					append procbody "\tif \{\[dict exists \$in response_headers\]\} \{" \n
+					append procbody "\t\tupvar 1 \[dict get \$in response_headers\] response_headers" \n
+					append procbody "\t\}" \n
+
 					append procbody "\t::${ns}::_req \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
 
 					set op	[json get $def operationId]
@@ -236,7 +240,10 @@ namespace eval ::openapi {
 					puts $h "\t\}"
 					puts $h ""
 					puts $h "	proc _req \{server method path args\} \{ #<<<"
+					puts $h "		upvar 1 response_headers response_headers  http_status http_status"
 					puts $h "		rl_http instvar h \$method \$server\$path \{*\}\$args"
+					puts $h "		set response_headers	\[\$h headers\]"
+					puts $h "		set http_status			\[\$h code\]"
 					puts $h "		switch -glob -- \[\$h code\] \{"
 					puts $h "			2* \{\$h body\}"
 					puts $h "			default \{"
