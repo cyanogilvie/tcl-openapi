@@ -3,6 +3,7 @@
 package require rl_json
 package require parse_args
 package require chantricks
+package require tcl::chan::variable
 
 namespace eval ::openapi {
 	namespace export *
@@ -16,9 +17,8 @@ namespace eval ::openapi {
 
 		proc tm args { #<<<
 			parse_args $args {
-				-in		{-default -}
-				-out	{-default -}
 				-ziplet	{-boolean}
+				in		{-required}
 			} cfg
 
 			if {[dict get $cfg in] eq "-"} {
@@ -168,7 +168,7 @@ namespace eval ::openapi {
 							}
 						}
 
-						append procbody "\t::${ns}::_req \[dict get \$in server] [list [string toupper $method]] \$path\[urlencode encode_query \$query\]\] {*}\$extra" \n
+						append procbody "\t::${ns}::_req \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
 					}
 
 					set op	[json get $def operationId]
@@ -209,11 +209,7 @@ namespace eval ::openapi {
 			#>>>
 
 			with_chan h {
-				if {[dict get $cfg out] eq "-"} {
-					return -level 0 stdout
-				} else {
-					open [dict get $cfg out] w
-				}
+				tcl::chan::variable out
 			} {
 				if {[dict get $cfg ziplet]} {
 					puts $h "apply \{\{\} \{ # Code is gzipped and appended to this script"
@@ -282,6 +278,8 @@ namespace eval ::openapi {
 				puts $h ""
 				puts $h "# vim\: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4"
 			}
+
+			set out
 		}
 
 		#>>>
