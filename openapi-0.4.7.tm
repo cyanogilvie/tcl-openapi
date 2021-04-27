@@ -8,12 +8,34 @@ package require tcl::chan::variable
 namespace eval ::openapi {
 	namespace export *
 	namespace ensemble create -prefixes no
-	namespace path {::parse_args ::rl_json ::chantricks}
+
+	namespace eval helpers {
+		proc longest l { #<<<
+			set longest	0
+			foreach e $l {
+				if {[set len [string length $e]] > $longest} {
+					set longest	$len
+				}
+			}
+			set longest
+		}
+
+		#>>>
+		proc indent {indent script} { #<<<
+			join [lmap line [split $script \n] {
+				format %s%s $indent $line
+			}] \n
+		}
+
+		#>>>
+	}
+
+	namespace path {::parse_args ::rl_json ::chantricks ::openapi::helpers}
 
 	namespace eval generate {
 		namespace export *
 		namespace ensemble create -prefixes no
-		namespace path {::parse_args ::rl_json ::chantricks}
+		namespace path {::parse_args ::rl_json ::chantricks ::openapi::helpers}
 
 		proc tm args { #<<<
 			parse_args $args {
@@ -22,18 +44,6 @@ namespace eval ::openapi {
 			} cfg
 
 			set s	[dict get $cfg in]
-
-			proc longest l { #<<<
-				set longest	0
-				foreach e $l {
-					if {[set len [string length $e]] > $longest} {
-						set longest	$len
-					}
-				}
-				set longest
-			}
-
-			#>>>
 
 			set ns			docker
 			set ensembles	{}
@@ -168,7 +178,7 @@ namespace eval ::openapi {
 					append procbody "\t\tupvar 1 \[dict get \$in response_headers\] response_headers" \n
 					append procbody "\t\}" \n
 
-					append procbody "\t::${ns}::_req \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
+					append procbody "\treq \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
 
 					set op	[json get $def operationId]
 					if {[json exists $def tags]} {
@@ -195,17 +205,9 @@ namespace eval ::openapi {
 						#puts "([set $v])"
 					}
 
-					dict lappend ensembles $tag "proc $op args { #<<<\n$procbody}\n\n#>>>"
+					dict lappend ensembles $tag [list $op $procbody]
 				}
 			}
-
-			proc indent {indent script} { #<<<
-				join [lmap line [split $script \n] {
-					format %s%s $indent $line
-				}] \n
-			}
-
-			#>>>
 
 			try {
 				with_chan h {
@@ -231,52 +233,76 @@ namespace eval ::openapi {
 					puts $h "package require rl_http 1.8"
 					puts $h "package require urlencode"
 					puts $h ""
-					puts $h "namespace eval ::[list $ns] \{"
-					puts $h "\tnamespace export *"
-					puts $h "\tnamespace ensemble create -prefixes no"
+					puts $h "namespace eval [list ::$ns] \{"
+					puts $h "	namespace eval helpers \{"
+					puts $h "		proc req \{server method path args\} \{ #<<<"
+					puts $h "			upvar 1 response_headers response_headers  http_status http_status"
+					puts $h "			rl_http instvar h \$method \$server\$path \{*\}\$args"
+					puts $h "			set response_headers	\[\$h headers\]"
+					puts $h "			set http_status			\[\$h code\]"
+					puts $h "			switch -glob -- \[\$h code\] \{"
+					#puts $h "				2* \{\$h body\}"
+					puts $h "				2* \{"
+					puts $h "					set body \[\$h body\]"
+					puts $h "					if \{\[info exists ::tcl_interactive\] && \$::tcl_interactive\} \{"
+					puts $h "						catch \{"
+					puts $h "							set hdrs	\[\$h headers\]"
+					puts $h "							if \{\[dict exists \$hdrs content-type\]\} \{"
+					puts $h "								switch -regexp -- \[lindex \[dict get \$hdrs content-type\] 0\] \{"
+					puts $h "									\{^(text|application)/json\[\[:>:\]\]\} \{set body \[json pretty \$body\]\}"
+					puts $h "									\{^(text|application)/xml\[\[:>:\]\]\} \{dom parse \$body doc; try \{\[\$doc documentElement\] asXML\} on ok body \{\} finally \{\$doc delete\}\}"
+					puts $h "								\}"
+					puts $h "							\}"
+					puts $h "						\}"
+					puts $h "					\}"
+					puts $h "					set body"
+					puts $h "				\}"
+					puts $h "				default \{"
+					puts $h "					try \{"
+					puts $h "						json get \[\$h body\] message"
+					puts $h "					\} on ok errmsg \{"
+					puts $h "						throw \[list DOCKER HTTP \[\$h code\]\] \$errmsg"
+					puts $h "					\} on error \{\} \{"
+					puts $h "						throw \[list DOCKER HTTP \[\$h code\]\] \[\$h body\]"
+					puts $h "					\}"
+					puts $h "				\}"
+					puts $h "			\}"
+					puts $h "		\}\n"
+					puts $h "		#>>>\n"
+					puts $h "	\}\n"
 					puts $h "\tnamespace path \{"
 					puts $h "\t\t::parse_args"
 					puts $h "\t\t::rl_json"
+					puts $h "\t\t[list ::${ns}::helpers]"
 					puts $h "\t\}"
-					puts $h ""
-					puts $h "	proc _req \{server method path args\} \{ #<<<"
-					puts $h "		upvar 1 response_headers response_headers  http_status http_status"
-					puts $h "		rl_http instvar h \$method \$server\$path \{*\}\$args"
-					puts $h "		set response_headers	\[\$h headers\]"
-					puts $h "		set http_status			\[\$h code\]"
-					puts $h "		switch -glob -- \[\$h code\] \{"
-					puts $h "			2* \{\$h body\}"
-					puts $h "			default \{"
-					puts $h "				try \{"
-					puts $h "					json get \[\$h body\] message"
-					puts $h "				\} on ok errmsg \{"
-					puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \$errmsg"
-					puts $h "				\} on error \{\} \{"
-					puts $h "					throw \[list DOCKER HTTP \[\$h code\]\] \[\$h body\]"
-					puts $h "				\}"
-					puts $h "			\}"
-					puts $h "		\}"
-					puts $h "	\}"
-					puts $h ""
-					puts $h "#>>>\n"
 
+					set ensemble_map	{}
 					dict for {tag procs} $ensembles {
 						if {$tag ne ""} {
-							puts $h "\tnamespace eval $tag \{ #<<<"
-							puts $h "\t\tnamespace export *"
-							puts $h "\t\tnamespace ensemble create -prefixes no"
+							dict lappend ensemble_map {} $tag _$tag
+							puts $h "\tnamespace eval [list _$tag] \{ #<<<"
 							puts $h "\t\tnamespace path \{"
 							puts $h "\t\t\t::parse_args"
 							puts $h "\t\t\t::rl_json"
+							puts $h "\t\t\t[list ::${ns}::helpers]"
 							puts $h "\t\t\}"
 							puts $h ""
 						}
 						foreach proc $procs {
-							puts $h [indent [string repeat \t [expr {$tag eq "" ? 1 : 2}]] $proc]
+							lassign $proc op procbody
+							dict lappend ensemble_map $tag $op _$op
+							set procscript "proc _$op args { #<<<\n$procbody}\n\n#>>>"
+							puts $h [indent [string repeat \t [expr {$tag eq "" ? 1 : 2}]] $procscript]
 						}
 						if {$tag ne ""} {
+							if {[dict exists $ensemble_map $tag]} {
+								puts $h "\t\tnamespace ensemble create -prefixes no -map [list [dict get $ensemble_map $tag]]"
+							}
 							puts $h "\t\}\n\n\t#>>>"
 						}
+					}
+					if {[dict exists $ensemble_map {}]} {
+						puts $h "\tnamespace ensemble create -prefixes no -map [list [dict get $ensemble_map {}]]"
 					}
 					puts $h "\}"
 					puts $h ""
