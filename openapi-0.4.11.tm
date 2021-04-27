@@ -306,7 +306,7 @@ namespace eval ::openapi {
 					}
 					puts $h "\}\n"
 					# Hook interactive mode tab completion to the ensemble handler
-					puts $h "namespace eval ::tclreadline \{proc [list complete($ns)] \{text start end line pos mod\} \{try \{package require tclreadline::complete::ensemble\} on error \{\} \{return\}; tailcall ::tclreadline::complete::ensemble \$text \$start \$end \$line \$pos \$mod\}\}"
+					puts $h "namespace eval ::tclreadline \{proc [list complete($ns)] \{text start end line pos mod\} \{try \{package require tclreadline::complete::ensemble\} on error \{\} \{return\}; tailcall ::tclreadline::complete::ensemble ::[list $ns] \$text \$start \$end \$line \$pos \$mod\}\}"
 					puts $h ""
 					puts $h "# vim\: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4"
 				}
