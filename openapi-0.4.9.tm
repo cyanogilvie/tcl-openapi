@@ -249,8 +249,8 @@ namespace eval ::openapi {
 					puts $h "							set hdrs	\[\$h headers\]"
 					puts $h "							if \{\[dict exists \$hdrs content-type\]\} \{"
 					puts $h "								switch -regexp -- \[lindex \[dict get \$hdrs content-type\] 0\] \{"
-					puts $h "									\{^(text|application)/json\[\[:>:\]\]\} \{set body \[json pretty \$body\]\}"
-					puts $h "									\{^(text|application)/xml\[\[:>:\]\]\} \{dom parse \$body doc; try \{\[\$doc documentElement\] asXML\} on ok body \{\} finally \{\$doc delete\}\}"
+					puts $h "									\{^(text|application)/json\[\[:>:\]\]\} - \{^\[a-zA-Z0-9_-\]+/\[a-zA-Z0-9_-\]\\+json\[\[:>:\]\]\} \{set body \[json pretty \$body\]\}"
+					puts $h "									\{^(text|application)/xml\[\[:>:\]\]\} - \{^\[a-zA-Z0-9_-\]+/\[a-zA-Z0-9_-\]\\+xml\[\[:>:\]\]\} \{dom parse \$body doc; try \{\[\$doc documentElement\] asXML\} on ok body \{\} finally \{\$doc delete\}\}"
 					puts $h "								\}"
 					puts $h "							\}"
 					puts $h "						\}"
@@ -304,7 +304,9 @@ namespace eval ::openapi {
 					if {[dict exists $ensemble_map {}]} {
 						puts $h "\tnamespace ensemble create -prefixes no -map [list [dict get $ensemble_map {}]]"
 					}
-					puts $h "\}"
+					puts $h "\}\n"
+					# Hook interactive mode tab completion to the ensemble handler
+					puts $h "namespace eval ::tclreadline \{proc [list complete($ns)] \{text start end line pos mod\} \{try \{packate require tclreadline::complete::ensemble\} on error \{return\}; tailcall ::tclreadline::complete::ensemble \$text \$start \$end \$line \$pos \$mod\}\}"
 					puts $h ""
 					puts $h "# vim\: ft=tcl foldmethod=marker foldmarker=<<<,>>> ts=4 shiftwidth=4"
 				}
