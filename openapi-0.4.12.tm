@@ -141,7 +141,7 @@ namespace eval ::openapi {
 					if {[llength [dict get $in path]] > 0} {
 						append procbody "\tset pathmap\t{}" \n
 						foreach name [dict get $in path] {
-							append procbody "\tlappend pathmap {{[list $name]}}\t\[urlencode rfc_urlencode -part path -- \[dict get \$in [list $name]\]\]" \n
+							append procbody "\tlappend pathmap {{[list $name]}}\t\[reuri::uri encode path \[dict get \$in [list $name]\]\]" \n
 						}
 						append procbody "\tset path\t\[string map \$pathmap [list $path]\]" \n
 					} else {
@@ -178,7 +178,7 @@ namespace eval ::openapi {
 					append procbody "\t\tupvar 1 \[dict get \$in response_headers\] response_headers" \n
 					append procbody "\t\}" \n
 
-					append procbody "\treq \[dict get \$in server\] [list [string toupper $method]] \$path\[urlencode encode_query \$query\] {*}\$extra" \n
+					append procbody "\treq \[dict get \$in server\] [list [string toupper $method]] \$path\[reuri::query encode \$query\] {*}\$extra" \n
 
 					set op	[json get $def operationId]
 					if {[json exists $def tags]} {
@@ -231,7 +231,7 @@ namespace eval ::openapi {
 					puts $h "package require rl_json"
 					puts $h "package require parse_args"
 					puts $h "package require rl_http 1.8"
-					puts $h "package require urlencode"
+					puts $h "package require reuri 0.10"
 					puts $h ""
 					puts $h "namespace eval [list ::$ns] \{"
 					puts $h "	namespace eval helpers \{"
